@@ -3,7 +3,7 @@ name: Auto Update Changelog
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *' # Runs daily, or triggers when called
 
 jobs:
   build:
@@ -11,22 +11,56 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout repository
+      - name: Checkout Changelog Repo
         uses: actions/checkout@v4
 
-      - name: Set up date
+      - name: Clone Garnet Device & Vendor Trees
+        run: |
+          # Clone your actual repositories to read their git logs
+          git clone https://github.com/justsreee/android_device_xiaomi_garnet.git device/xiaomi/garnet || true
+          git clone https://github.com/justsreee/android_vendor_xiaomi_garnet.git vendor/xiaomi/garnet || true
+          git clone https://github.com/justsreee/android_kernel_xiaomi_sm7435.git kernel/xiaomi/sm7435 || true
+
+      - name: Generate Changelog
         run: |
           DATE_TO_CHECK=$(date -d "yesterday" '+%Y-%m-%d')
-          echo "Checking commits for $DATE_TO_CHECK"
+          OUTPUT_FILE="changelog.txt"
           
-          echo "# Changelog" > changelog.txt
-          echo "" >> changelog.txt
-          echo "## $DATE_TO_CHECK" >> changelog.txt
+          echo "# Changelog" > $OUTPUT_FILE
+          echo "" >> $OUTPUT_FILE
+          echo "## $DATE_TO_CHECK" >> $OUTPUT_FILE
 
-      - name: Commit and Push
+          extract_logs() {
+              REPO_PATH=$1
+              REPO_NAME=$2
+
+              if [ -d "$REPO_PATH" ]; then
+                  echo "" >> $OUTPUT_FILE
+                  echo "### $REPO_NAME" >> $OUTPUT_FILE
+                  echo "" >> $OUTPUT_FILE
+                  
+                  cd $REPO_PATH
+                  COMMITS=$(git log --since="$DATE_TO_CHECK 00:00:00" --until="$DATE_TO_CHECK 23:59:59" --pretty=format:"- %h %s")
+                  
+                  if [ -z "$COMMITS" ]; then
+                      echo "- No new commits." >> ../../$OUTPUT_FILE
+                  else
+                      git log --since="$DATE_TO_CHECK 00:00:00" --until="$DATE_TO_CHECK 23:59:59" --pretty=format:"- [%h](https://github.com/justsreee/$REPO_NAME/commit/%H) %s" >> ../../$OUTPUT_FILE
+                      echo "" >> ../../$OUTPUT_FILE
+                  fi
+                  cd - > /dev/null
+              fi
+          }
+
+          # Scan the trees
+          extract_logs "device/xiaomi/garnet" "android_device_xiaomi_garnet"
+          extract_logs "vendor/xiaomi/garnet" "android_vendor_xiaomi_garnet"
+          extract_logs "kernel/xiaomi/sm7435" "android_kernel_xiaomi_sm7435"
+
+      - name: Commit and Push Changelog
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add changelog.txt
-          git diff --quiet && git diff --cached --quiet || (git commit -m "docs: auto-update daily changelog" && git push)
+          git diff --quiet && git diff --cached --quiet || (git commit -m "docs: auto-update daily changelog for garnet" && git push)
           
