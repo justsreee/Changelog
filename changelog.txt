@@ -1,0 +1,12 @@
+# Changelog
+
+## 2026-10-23
+
+### ## device_xiaomi_garnet
+
+
+### ## vendor_xiaomi_garnet
+
+
+### ## android_kernel_xiaomi_sm7435
+
