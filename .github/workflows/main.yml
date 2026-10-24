@@ -1,0 +1,32 @@
+name: Auto Update Changelog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up date
+        run: |
+          DATE_TO_CHECK=$(date -d "yesterday" '+%Y-%m-%d')
+          echo "Checking commits for $DATE_TO_CHECK"
+          
+          echo "# Changelog" > changelog.txt
+          echo "" >> changelog.txt
+          echo "## $DATE_TO_CHECK" >> changelog.txt
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add changelog.txt
+          git diff --quiet && git diff --cached --quiet || (git commit -m "docs: auto-update daily changelog" && git push)
+          
